@@ -4,10 +4,14 @@ export default function MyApp({ Component, pageProps }) {
   return (
     <>
       <Head>
+        <meta charSet="utf-8" />
         <title>Europe Trip 2026 🌍</title>
+        <meta name="description" content="Europe Trip 2026 — collaborative travel planner for Dublin, London, Paris, and Brussels." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* Preconnect before the stylesheet request so the font download starts sooner */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* font-display=swap avoids invisible text while the font loads */}
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
         <style>{`
           * { box-sizing: border-box; margin: 0; padding: 0; }
