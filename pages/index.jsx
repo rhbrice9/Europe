@@ -1066,6 +1066,14 @@ export default function App() {
   const [showPwGate,   setShowPwGate]  = useState(true);
   const [writeMode,    setWriteMode]   = useState(false);
   const [rlToast,      setRlToast]     = useState(null);
+  const [isMobile,     setIsMobile]    = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // ── Load initial data from Supabase ────────────────────────────────────────
   useEffect(() => {
@@ -1180,7 +1188,7 @@ export default function App() {
       {/* Rate-limit toast */}
       {rlToast !== null && <RateLimitToast waitSec={rlToast} onDismiss={() => setRlToast(null)} />}
       {/* Hero */}
-      <div style={{ background:"linear-gradient(160deg,#0a0f1e 0%,#130824 50%,#0a1a14 100%)",borderBottom:"1px solid rgba(255,255,255,0.07)",padding:"36px 24px 28px",position:"relative",overflow:"hidden" }}>
+      <div style={{ background:"linear-gradient(160deg,#0a0f1e 0%,#130824 50%,#0a1a14 100%)",borderBottom:"1px solid rgba(255,255,255,0.07)",padding:isMobile?"36px 16px 28px":"36px 24px 28px",position:"relative",overflow:"hidden" }}>
         <div style={{ position:"absolute",top:-60,right:-40,width:300,height:300,borderRadius:"50%",background:"radial-gradient(circle,rgba(124,58,237,0.12) 0%,transparent 70%)",pointerEvents:"none" }}/>
         <div style={{ maxWidth:960,margin:"0 auto",position:"relative" }}>
           <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:12 }}>
@@ -1207,17 +1215,19 @@ export default function App() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ maxWidth:960,margin:"0 auto",padding:"14px 24px 0" }}>
-        <div style={{ display:"flex",gap:2,background:"rgba(255,255,255,0.04)",border:"1px solid "+T.border,borderRadius:T.radius,padding:4,overflowX:"auto" }}>
-          {TABS.map(([tab,emoji,label]) => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{ flex:"1 1 auto",padding:"9px 6px",borderRadius:T.radiusSm,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,whiteSpace:"nowrap",transition:"all 0.15s", background:activeTab===tab?"rgba(255,255,255,0.11)":"transparent", color:activeTab===tab?"#fff":T.textDim }}>{emoji} {label}</button>
-          ))}
+      {/* Tabs — desktop only */}
+      {!isMobile && (
+        <div style={{ maxWidth:960,margin:"0 auto",padding:"14px 24px 0" }}>
+          <div style={{ display:"flex",gap:2,background:"rgba(255,255,255,0.04)",border:"1px solid "+T.border,borderRadius:T.radius,padding:4,overflowX:"auto" }}>
+            {TABS.map(([tab,emoji,label]) => (
+              <button key={tab} onClick={() => setActiveTab(tab)} style={{ flex:"1 1 auto",padding:"9px 6px",borderRadius:T.radiusSm,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,whiteSpace:"nowrap",transition:"all 0.15s", background:activeTab===tab?"rgba(255,255,255,0.11)":"transparent", color:activeTab===tab?"#fff":T.textDim }}>{emoji} {label}</button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Content */}
-      <div style={{ maxWidth:960,margin:"0 auto",padding:"18px 24px 80px" }}>
+      <div style={{ maxWidth:960,margin:"0 auto",padding:isMobile?"18px 16px 100px":"18px 24px 80px" }}>
 
         {activeTab==="itinerary" && (
           <div>
@@ -1314,6 +1324,22 @@ export default function App() {
       {modal?.type==="editItem" && <ItemEditor item={modal.item} onClose={() => setModal(null)} onSave={d => editItem(modal.cityId, modal.dayId, modal.item.id, d)}/>}
       {modal?.type==="addDay"   && <DayEditor  onClose={() => setModal(null)} onSave={d => addDay(modal.cityId, d)}/>}
       {modal?.type==="editDay"  && <DayEditor  day={modal.day} onClose={() => setModal(null)} onSave={d => editDay(modal.cityId, modal.day.id, d)}/>}
+
+      {/* Bottom nav — mobile only */}
+      {isMobile && (
+        <div style={{ position:"fixed",bottom:0,left:0,right:0,zIndex:100,display:"flex",alignItems:"stretch",background:"rgba(7,9,15,0.92)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid "+T.border,paddingBottom:"env(safe-area-inset-bottom, 0px)" }}>
+          {TABS.map(([tab,emoji,label]) => {
+            const active = activeTab === tab;
+            return (
+              <button key={tab} onClick={() => setActiveTab(tab)} style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,minHeight:56,border:"none",background:"transparent",cursor:"pointer",padding:"8px 4px",position:"relative",fontFamily:T.font,WebkitTapHighlightColor:"transparent",touchAction:"manipulation" }}>
+                {active && <div style={{ position:"absolute",top:0,width:28,height:2,borderRadius:"0 0 2px 2px",background:T.accent }}/>}
+                <span style={{ fontSize:20,lineHeight:1,filter:active?"none":"grayscale(0.4) opacity(0.5)",transition:"filter 0.15s" }}>{emoji}</span>
+                <span style={{ fontSize:10,fontWeight:active?700:500,color:active?"#fff":T.textDim,transition:"color 0.15s",lineHeight:1 }}>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
