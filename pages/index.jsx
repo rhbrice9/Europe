@@ -213,11 +213,16 @@ function TripMap({ cities }) {
   const mapRef         = useRef(null);
   const mapInstanceRef = useRef(null);
   const [selectedDay, setSelectedDay]   = useState(null);
+  const [selectedCity, setSelectedCity] = useState(null);
   const [leafletReady, setLeafletReady] = useState(false);
 
   const allDays = cities.flatMap(c =>
-    c.days.map(d => ({ ...d, cityName:c.name, cityColor:c.color, cityEmoji:c.emoji }))
+    c.days.map(d => ({ ...d, cityName:c.name, cityColor:c.color, cityEmoji:c.emoji, cityId:c.id }))
   );
+
+  const visibleDays = selectedCity
+    ? allDays.filter(d => d.cityId === selectedCity)
+    : allDays;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -243,7 +248,8 @@ function TripMap({ cities }) {
     }).addTo(map);
 
     const pins = [];
-    const day  = selectedDay ? allDays.find(d => d.id === selectedDay) : null;
+    const day        = selectedDay ? allDays.find(d => d.id === selectedDay) : null;
+    const cityFilter = !day && selectedCity ? cities.find(c => c.id === selectedCity) : null;
 
     if (day) {
       day.items.filter(i => i.lat && i.lng).forEach(item => {
@@ -255,6 +261,15 @@ function TripMap({ cities }) {
         pins.push([item.lat, item.lng]);
       });
       if (pins.length > 1) L.polyline(pins, { color:day.cityColor, weight:2, opacity:0.5, dashArray:"6,8" }).addTo(map);
+    } else if (cityFilter) {
+      cityFilter.days.forEach(d => d.items.filter(i => i.lat && i.lng).forEach(item => {
+        const ic = L.divIcon({ className:"", iconAnchor:[10,10],
+          html:`<div style="background:${cityFilter.color};border:2px solid #fff;border-radius:50%;width:18px;height:18px;box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>`
+        });
+        L.marker([item.lat, item.lng], { icon:ic }).addTo(map)
+          .bindPopup(`<b>${item.icon} ${item.text.slice(0,50)}${item.text.length>50?"…":""}</b>`);
+        pins.push([item.lat, item.lng]);
+      }));
     } else {
       cities.forEach(c => c.days.forEach(d => d.items.filter(i => i.lat && i.lng).forEach(item => {
         const ic = L.divIcon({ className:"", iconAnchor:[10,10],
@@ -283,16 +298,30 @@ function TripMap({ cities }) {
     } else { map.setView([51.0, 3.0], 5); }
 
     return () => { if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; } };
-  }, [leafletReady, selectedDay, cities]);
+  }, [leafletReady, selectedDay, selectedCity, cities]);
+
+  const activeCityObj = selectedCity ? cities.find(c => c.id === selectedCity) : null;
+  const btnBase = { padding:"7px 14px", borderRadius:T.radiusSm, cursor:"pointer", fontSize:12, fontWeight:600, border:"1px solid "+T.border, background:T.bgCard, color:T.textMid };
 
   return (
     <div>
       <div style={{ marginBottom:16 }}>
-        <div style={{ fontSize:11, fontWeight:700, letterSpacing:2, color:T.textDim, textTransform:"uppercase", marginBottom:10 }}>Select Day</div>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          <button onClick={() => setSelectedDay(null)} style={{ padding:"7px 14px", borderRadius:T.radiusSm, border:"1px solid "+(selectedDay===null?T.accent:T.border), background:selectedDay===null?"rgba(124,58,237,0.2)":T.bgCard, color:selectedDay===null?"#fff":T.textMid, cursor:"pointer", fontSize:12, fontWeight:600 }}>🌍 Full Trip</button>
-          {allDays.map(d => (
-            <button key={d.id} onClick={() => setSelectedDay(d.id)} style={{ padding:"7px 14px", borderRadius:T.radiusSm, cursor:"pointer", fontSize:12, fontWeight:600, border:"1px solid "+(selectedDay===d.id?d.cityColor:T.border), background:selectedDay===d.id?d.cityColor+"33":T.bgCard, color:selectedDay===d.id?"#fff":T.textMid }}>{d.cityEmoji} {d.date}</button>
+        {/* Layer 1 — Location */}
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:2, color:T.textDim, textTransform:"uppercase", marginBottom:8 }}>Location</div>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
+          <button onClick={() => { setSelectedCity(null); setSelectedDay(null); }} style={{ ...btnBase, border:"1px solid "+(selectedCity===null?T.accent:T.border), background:selectedCity===null?"rgba(124,58,237,0.2)":T.bgCard, color:selectedCity===null?"#fff":T.textMid }}>🌍 All</button>
+          {cities.map(c => (
+            <button key={c.id} onClick={() => { setSelectedCity(c.id); setSelectedDay(null); }} style={{ ...btnBase, border:"1px solid "+(selectedCity===c.id?c.color:T.border), background:selectedCity===c.id?c.color+"33":T.bgCard, color:selectedCity===c.id?"#fff":T.textMid }}>{c.emoji} {c.name}</button>
+          ))}
+        </div>
+        {/* Layer 2 — Day */}
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:2, color:T.textDim, textTransform:"uppercase", marginBottom:8 }}>Day</div>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+          <button onClick={() => setSelectedDay(null)} style={{ ...btnBase, border:"1px solid "+(selectedDay===null?(activeCityObj?activeCityObj.color:T.accent):T.border), background:selectedDay===null?(activeCityObj?activeCityObj.color+"33":"rgba(124,58,237,0.2)"):T.bgCard, color:selectedDay===null?"#fff":T.textMid }}>
+            {activeCityObj ? `All ${activeCityObj.name} Days` : "Full Trip"}
+          </button>
+          {visibleDays.map(d => (
+            <button key={d.id} onClick={() => setSelectedDay(d.id)} style={{ ...btnBase, border:"1px solid "+(selectedDay===d.id?d.cityColor:T.border), background:selectedDay===d.id?d.cityColor+"33":T.bgCard, color:selectedDay===d.id?"#fff":T.textMid }}>{d.cityEmoji} {d.date}</button>
           ))}
         </div>
       </div>
