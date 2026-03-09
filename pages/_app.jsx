@@ -21,6 +21,12 @@ export default function MyApp({ Component, pageProps }) {
           ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
           ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
           select option { background: #0f1420; color: #f0f0f4; }
+          /* Remove 300ms tap delay and iOS blue highlight on interactive elements */
+          button, a, input, select, textarea { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+          /* Prevent iOS Safari from zooming in when focusing inputs (requires font-size >= 16px) */
+          @media (max-width: 640px) {
+            input, select, textarea { font-size: 16px !important; }
+          }
         `}</style>
       </Head>
       <Component {...pageProps} />

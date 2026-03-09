@@ -183,6 +183,21 @@ const DEFAULT_CITIES = [
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
+// Returns true on screens narrower than 640px (phone-sized).
+// Defaults to false during SSR so the initial render matches the server.
+function useIsMobile() {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 640px)");
+    setMobile(mq.matches);
+    const handler = e => setMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return mobile;
+}
+
 const T = {
   bg:"#07090f", bgCard:"rgba(255,255,255,0.035)", bgCardHov:"rgba(255,255,255,0.06)",
   border:"rgba(255,255,255,0.08)", borderHov:"rgba(255,255,255,0.18)",
@@ -214,6 +229,7 @@ function TripMap({ cities }) {
   const mapInstanceRef = useRef(null);
   const [selectedDay, setSelectedDay]   = useState(null);
   const [leafletReady, setLeafletReady] = useState(false);
+  const isMobile = useIsMobile();
 
   const allDays = cities.flatMap(c =>
     c.days.map(d => ({ ...d, cityName:c.name, cityColor:c.color, cityEmoji:c.emoji }))
@@ -296,7 +312,7 @@ function TripMap({ cities }) {
           ))}
         </div>
       </div>
-      <div ref={mapRef} style={{ height:500, borderRadius:T.radius, overflow:"hidden", border:"1px solid "+T.border, background:"#1a2030" }}/>
+      <div ref={mapRef} style={{ height:isMobile?320:500, borderRadius:T.radius, overflow:"hidden", border:"1px solid "+T.border, background:"#1a2030" }}/>
       <div style={{ marginTop:12, display:"flex", gap:16, flexWrap:"wrap", fontSize:12, color:T.textDim }}>
         <span>📍 Location pin</span>
         <span style={{ color:"#7c3aed" }}>- - ✈️ Flight arc</span>
@@ -319,9 +335,10 @@ function Btn({ onClick, children, small, danger, disabled, primary }) {
 }
 
 function Modal({ title, onClose, children, wide }) {
+  const isMobile = useIsMobile();
   return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",backdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16 }}>
-      <div style={{ background:"#0f1420",border:"1px solid rgba(255,255,255,0.1)",borderRadius:20,padding:28,width:"100%",maxWidth:wide?680:500,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 80px rgba(0,0,0,0.7)" }}>
+    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",backdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:isMobile?8:16 }}>
+      <div style={{ background:"#0f1420",border:"1px solid rgba(255,255,255,0.1)",borderRadius:20,padding:isMobile?18:28,width:"100%",maxWidth:wide?680:500,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 80px rgba(0,0,0,0.7)" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22 }}>
           <div style={{ fontWeight:700,fontSize:17,color:T.text }}>{title}</div>
           <button onClick={onClose} style={{ background:"rgba(255,255,255,0.07)",border:"1px solid "+T.border,color:T.textMid,fontSize:16,cursor:"pointer",width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
@@ -452,6 +469,7 @@ function DayCard({ day, di, totalDays, expanded, onToggle, onMoveUp, onMoveDown,
 const DEFAULT_BUDGET = { expenses:[] };
 
 function ExpenseEditor({ expense, onSave, onClose }) {
+  const isMobile = useIsMobile();
   const [desc,       setDesc]       = useState(expense?.desc      || "");
   const [amount,     setAmount]     = useState(expense?.amount    || "");
   const [currency,   setCurrency]   = useState(expense?.currency  || "USD");
@@ -480,7 +498,7 @@ function ExpenseEditor({ expense, onSave, onClose }) {
     <Modal title={expense ? "Edit Expense" : "Add Expense"} onClose={onClose} wide>
       <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
         <Field label="Description"><input value={desc} onChange={e => setDesc(e.target.value)} placeholder="e.g. Dinner at Le Jules Verne" style={inputStyle}/></Field>
-        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12 }}>
+        <div style={{ display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:12 }}>
           <Field label="Amount"><input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" style={inputStyle}/></Field>
           <Field label="Currency">
             <select value={currency} onChange={e => setCurrency(e.target.value)} style={inputStyle}>
@@ -1003,6 +1021,7 @@ function RateLimitToast({ waitSec, onDismiss }) {
 }
 
 export default function App() {
+  const isMobile = useIsMobile();
   const [cities,       setCities]      = useState(DEFAULT_CITIES);
   const [budget,       setBudgetState] = useState(DEFAULT_BUDGET);
   const [notes,        setNotesState]  = useState(DEFAULT_NOTES);
@@ -1129,7 +1148,7 @@ export default function App() {
       {/* Rate-limit toast */}
       {rlToast !== null && <RateLimitToast waitSec={rlToast} onDismiss={() => setRlToast(null)} />}
       {/* Hero */}
-      <div style={{ background:"linear-gradient(160deg,#0a0f1e 0%,#130824 50%,#0a1a14 100%)",borderBottom:"1px solid rgba(255,255,255,0.07)",padding:"36px 24px 28px",position:"relative",overflow:"hidden" }}>
+      <div style={{ background:"linear-gradient(160deg,#0a0f1e 0%,#130824 50%,#0a1a14 100%)",borderBottom:"1px solid rgba(255,255,255,0.07)",padding:isMobile?"22px 16px 20px":"36px 24px 28px",position:"relative",overflow:"hidden" }}>
         <div style={{ position:"absolute",top:-60,right:-40,width:300,height:300,borderRadius:"50%",background:"radial-gradient(circle,rgba(124,58,237,0.12) 0%,transparent 70%)",pointerEvents:"none" }}/>
         <div style={{ maxWidth:960,margin:"0 auto",position:"relative" }}>
           <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:12 }}>
@@ -1157,16 +1176,16 @@ export default function App() {
       </div>
 
       {/* Tabs */}
-      <div style={{ maxWidth:960,margin:"0 auto",padding:"14px 24px 0" }}>
+      <div style={{ maxWidth:960,margin:"0 auto",padding:isMobile?"10px 12px 0":"14px 24px 0" }}>
         <div style={{ display:"flex",gap:2,background:"rgba(255,255,255,0.04)",border:"1px solid "+T.border,borderRadius:T.radius,padding:4,overflowX:"auto" }}>
           {TABS.map(([tab,emoji,label]) => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{ flex:"1 1 auto",padding:"9px 6px",borderRadius:T.radiusSm,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,whiteSpace:"nowrap",transition:"all 0.15s", background:activeTab===tab?"rgba(255,255,255,0.11)":"transparent", color:activeTab===tab?"#fff":T.textDim }}>{emoji} {label}</button>
+            <button key={tab} onClick={() => setActiveTab(tab)} style={{ flex:"1 1 auto",padding:isMobile?"10px 4px":"9px 6px",borderRadius:T.radiusSm,border:"none",cursor:"pointer",fontSize:isMobile?18:13,fontWeight:600,whiteSpace:"nowrap",transition:"all 0.15s", background:activeTab===tab?"rgba(255,255,255,0.11)":"transparent", color:activeTab===tab?"#fff":T.textDim }} title={label}>{isMobile?emoji:`${emoji} ${label}`}</button>
           ))}
         </div>
       </div>
 
       {/* Content */}
-      <div style={{ maxWidth:960,margin:"0 auto",padding:"18px 24px 80px" }}>
+      <div style={{ maxWidth:960,margin:"0 auto",padding:isMobile?"14px 12px 80px":"18px 24px 80px" }}>
 
         {activeTab==="itinerary" && (
           <div>
