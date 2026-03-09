@@ -26,12 +26,12 @@ Europe/
 │   └── index.jsx         # Full app — all tabs, components, and logic
 ├── lib/
 │   └── supabase.js       # Supabase client + storage helper (get/set/subscribe)
+│                          #   → password-gated writes, rate limiting (5/min)
 ├── supabase/
 │   └── setup.sql         # Run once in Supabase SQL Editor to create the table
-├── archive/
-│   └── index-legacy-v1.html   # Original single-file version (Claude.ai only)
+│                          #   → RLS policies: open reads, password-gated writes
 ├── .env.local.example    # Copy to .env.local and fill in your Supabase keys
-├── next.config.js
+├── next.config.js        # Security headers (X-Frame-Options, nosniff, etc.)
 └── package.json
 ```
 
@@ -78,7 +78,13 @@ All trip data is stored in a single Supabase Postgres table (`trip_data`) with t
 
 Supabase Realtime pushes row changes to every open browser tab instantly — no polling, no page refresh needed.
 
-**Security:** No login required. The Vercel URL is the shared "key" — only share it with your travel group. All writes use the Supabase `anon` key with open RLS policies, which is appropriate for a private group app.
+**Security:** No login required. The Vercel URL is the shared "key" — only share it with your travel group.
+
+- **Read access** — open to anyone with the URL (view-only by default)
+- **Write access** — requires the group password ("The Mutch-Too-Many Travelers"), enforced at both the client and the Supabase RLS policy level via a custom `x-write-password` header
+- **Rate limiting** — max 5 writes per minute per client (sliding window)
+- **Payload guard** — `CHECK (length(value) < 500000)` prevents oversized writes
+- **Security headers** — `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `X-XSS-Protection`, `Referrer-Policy`, `Permissions-Policy`
 
 ---
 
