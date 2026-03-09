@@ -399,7 +399,7 @@ function ItemEditor({ item, onSave, onClose }) {
           <textarea value={text} onChange={e => setText(e.target.value)} rows={3} style={{ ...inputStyle, resize:"vertical" }}/>
         </Field>
         <Field label="Location (optional — pins item on map)">
-          <div style={{ display:"flex",gap:6 }}>
+          <div style={{ display:"flex",gap:6,alignItems:"stretch" }}>
             <input
               value={location}
               onChange={e => { setLocation(e.target.value); setLat(null); setLng(null); setGeoStatus(""); }}
@@ -409,11 +409,11 @@ function ItemEditor({ item, onSave, onClose }) {
             />
             <button
               onClick={searchLocation}
-              style={{ padding:"0 14px",borderRadius:T.radiusSm,cursor:"pointer",fontSize:13,fontWeight:600, border:"1px solid rgba(124,58,237,0.5)", background:"rgba(124,58,237,0.2)", color:"#fff", whiteSpace:"nowrap" }}
+              style={{ padding:"0 14px",borderRadius:T.radiusSm,cursor:"pointer",fontSize:13,fontWeight:600, border:"1px solid rgba(124,58,237,0.5)", background:"rgba(124,58,237,0.2)", color:"#fff", whiteSpace:"nowrap", touchAction:"manipulation", minHeight:44 }}
             >Search</button>
           </div>
           {geoStatus && (
-            <div style={{ fontSize:12, color: geoStatus.startsWith("Found") ? "#6ee7b7" : geoStatus === "Searching…" ? T.textMid : "#f87171", marginTop:4 }}>
+            <div style={{ fontSize:12, color: geoStatus.startsWith("Found") || geoStatus.startsWith("Coords") ? "#6ee7b7" : geoStatus === "Searching…" ? T.textMid : "#f87171", marginTop:4 }}>
               {geoStatus}
             </div>
           )}
