@@ -347,6 +347,37 @@ function ItemEditor({ item, onSave, onClose }) {
   const [type,setType] = useState(item?.type  || "bullet");
   const [icon,setIcon] = useState(item?.icon  || "📍");
   const [text,setText] = useState(item?.text  || "");
+  const [location, setLocation] = useState(item?.location || "");
+  const [lat, setLat] = useState(item?.lat ?? null);
+  const [lng, setLng] = useState(item?.lng ?? null);
+  const [geoStatus, setGeoStatus] = useState(
+    item?.lat ? `Coords: ${item.lat.toFixed(4)}, ${item.lng.toFixed(4)}` : ""
+  );
+
+  const searchLocation = async () => {
+    if (!location.trim()) return;
+    setGeoStatus("Searching…");
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(location)}&format=json&limit=1`,
+        { headers: { "Accept-Language": "en" } }
+      );
+      const data = await res.json();
+      if (data.length > 0) {
+        const foundLat = parseFloat(data[0].lat);
+        const foundLng = parseFloat(data[0].lon);
+        setLat(foundLat);
+        setLng(foundLng);
+        setGeoStatus(`Found: ${data[0].display_name.split(",").slice(0,2).join(", ")}`);
+      } else {
+        setLat(null); setLng(null);
+        setGeoStatus("Not found");
+      }
+    } catch {
+      setGeoStatus("Error searching");
+    }
+  };
+
   return (
     <Modal title={item ? "Edit Item" : "Add Item"} onClose={onClose}>
       <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
@@ -367,9 +398,29 @@ function ItemEditor({ item, onSave, onClose }) {
         <Field label="Text">
           <textarea value={text} onChange={e => setText(e.target.value)} rows={3} style={{ ...inputStyle, resize:"vertical" }}/>
         </Field>
+        <Field label="Location (optional — pins item on map)">
+          <div style={{ display:"flex",gap:6 }}>
+            <input
+              value={location}
+              onChange={e => { setLocation(e.target.value); setLat(null); setLng(null); setGeoStatus(""); }}
+              onKeyDown={e => e.key === "Enter" && searchLocation()}
+              placeholder="e.g. Eiffel Tower, Paris"
+              style={{ ...inputStyle, flex:1 }}
+            />
+            <button
+              onClick={searchLocation}
+              style={{ padding:"0 14px",borderRadius:T.radiusSm,cursor:"pointer",fontSize:13,fontWeight:600, border:"1px solid rgba(124,58,237,0.5)", background:"rgba(124,58,237,0.2)", color:"#fff", whiteSpace:"nowrap" }}
+            >Search</button>
+          </div>
+          {geoStatus && (
+            <div style={{ fontSize:12, color: geoStatus.startsWith("Found") ? "#6ee7b7" : geoStatus === "Searching…" ? T.textMid : "#f87171", marginTop:4 }}>
+              {geoStatus}
+            </div>
+          )}
+        </Field>
         <div style={{ display:"flex",justifyContent:"flex-end",gap:8 }}>
           <Btn onClick={onClose}>Cancel</Btn>
-          <Btn primary onClick={() => text.trim() && onSave({ type, icon, text:text.trim() })}>Save</Btn>
+          <Btn primary onClick={() => text.trim() && onSave({ type, icon, text:text.trim(), lat, lng, location: location.trim() || null })}>Save</Btn>
         </div>
       </div>
     </Modal>
