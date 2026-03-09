@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { storage } from "../lib/supabase";
+import { storage, isWriteUnlocked, isPasswordCorrect, setSessionPassword } from "../lib/supabase";
 
 const STORAGE_KEY = "europe-trip-2026-v2";
 const BUDGET_KEY  = "europe-trip-2026-budget-v1";
@@ -950,6 +950,58 @@ function NotesTab({ notes, setNotes }) {
 }
 
 // ── Main App ──────────────────────────────────────────────────────────────────
+
+function PasswordGate({ onUnlock }) {
+  const [pw, setPw] = useState("");
+  const [error, setError] = useState(false);
+  const submit = () => {
+    if (isPasswordCorrect(pw.trim())) {
+      setSessionPassword(pw.trim());
+      onUnlock();
+    } else {
+      setError(true);
+      setTimeout(() => setError(false), 2000);
+    }
+  };
+  return (
+    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",backdropFilter:"blur(6px)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16 }}>
+      <div style={{ background:"#0f1420",border:"1px solid rgba(255,255,255,0.1)",borderRadius:20,padding:32,width:"100%",maxWidth:420,boxShadow:"0 24px 80px rgba(0,0,0,0.7)",textAlign:"center" }}>
+        <div style={{ fontSize:40,marginBottom:12 }}>🔒</div>
+        <div style={{ fontWeight:700,fontSize:18,color:"#f0f0f4",marginBottom:6,fontFamily:"'DM Sans',sans-serif" }}>Edit Access Required</div>
+        <div style={{ fontSize:13,color:"rgba(255,255,255,0.5)",marginBottom:24,lineHeight:1.5 }}>
+          Enter the group password to make changes.<br/>You can still view everything without it.
+        </div>
+        <input
+          type="password"
+          value={pw}
+          onChange={e => setPw(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && submit()}
+          placeholder="Group password…"
+          autoFocus
+          style={{ width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid "+(error?"#f87171":"rgba(255,255,255,0.1)"),borderRadius:10,padding:"12px 16px",color:"#f0f0f4",fontSize:15,outline:"none",boxSizing:"border-box",fontFamily:"'DM Sans',sans-serif",marginBottom:12,transition:"border-color 0.2s" }}
+        />
+        {error && <div style={{ color:"#f87171",fontSize:12,marginBottom:12,fontWeight:600 }}>Incorrect password — try again</div>}
+        <div style={{ display:"flex",gap:10 }}>
+          <button onClick={() => onUnlock()} style={{ flex:1,padding:"11px 0",borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.05)",color:"rgba(255,255,255,0.6)",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif" }}>View Only</button>
+          <button onClick={submit} style={{ flex:1,padding:"11px 0",borderRadius:10,border:"none",background:"linear-gradient(135deg,#7c3aed,#6d28d9)",color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif" }}>Unlock Editing</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RateLimitToast({ waitSec, onDismiss }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 4000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+  return (
+    <div style={{ position:"fixed",top:24,left:"50%",transform:"translateX(-50%)",zIndex:400,background:"#1e1030",border:"1px solid rgba(248,113,113,0.3)",borderRadius:12,padding:"12px 24px",color:"#f87171",fontSize:13,fontWeight:600,boxShadow:"0 8px 32px rgba(0,0,0,0.5)",fontFamily:"'DM Sans',sans-serif" }}>
+      ⏱️ Too many edits — please wait {waitSec}s before saving again
+    </div>
+  );
+}
+
 export default function App() {
   const [cities,       setCities]      = useState(DEFAULT_CITIES);
   const [budget,       setBudgetState] = useState(DEFAULT_BUDGET);
@@ -960,6 +1012,9 @@ export default function App() {
   const [activeTab,    setActiveTab]   = useState("itinerary");
   const [expandedDays, setExpanded]    = useState({});
   const [modal,        setModal]       = useState(null);
+  const [showPwGate,   setShowPwGate]  = useState(true);
+  const [writeMode,    setWriteMode]   = useState(false);
+  const [rlToast,      setRlToast]     = useState(null);
 
   // ── Load initial data from Supabase ────────────────────────────────────────
   useEffect(() => {
@@ -997,27 +1052,41 @@ export default function App() {
   }, []);
 
   // ── Persist helpers ─────────────────────────────────────────────────────────
-  const saveCities = useCallback(async (data) => {
-    setSaving(true);
-    try { await storage.set(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
-    setSaving(false);
+  const handleWriteResult = useCallback((result) => {
+    if (result?.error === 'RATE_LIMITED') {
+      setRlToast(result.waitSec);
+    } else if (result?.error === 'PASSWORD_REQUIRED') {
+      setShowPwGate(true);
+    }
   }, []);
+
+  const saveCities = useCallback(async (data) => {
+    if (!isWriteUnlocked()) { setShowPwGate(true); return; }
+    setSaving(true);
+    try {
+      const result = await storage.set(STORAGE_KEY, JSON.stringify(data));
+      handleWriteResult(result);
+    } catch(e) {}
+    setSaving(false);
+  }, [handleWriteResult]);
 
   const setBudget = useCallback((updater) => {
+    if (!isWriteUnlocked()) { setShowPwGate(true); return; }
     setBudgetState(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
-      storage.set(BUDGET_KEY, JSON.stringify(next)).catch(() => {});
+      storage.set(BUDGET_KEY, JSON.stringify(next)).then(handleWriteResult).catch(() => {});
       return next;
     });
-  }, []);
+  }, [handleWriteResult]);
 
   const setNotes = useCallback((updater) => {
+    if (!isWriteUnlocked()) { setShowPwGate(true); return; }
     setNotesState(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
-      storage.set(NOTES_KEY, JSON.stringify(next)).catch(() => {});
+      storage.set(NOTES_KEY, JSON.stringify(next)).then(handleWriteResult).catch(() => {});
       return next;
     });
-  }, []);
+  }, [handleWriteResult]);
 
   // ── Itinerary mutations ─────────────────────────────────────────────────────
   const update    = useCallback((next) => { setCities(next); saveCities(next); }, [saveCities]);
@@ -1055,6 +1124,10 @@ export default function App() {
 
   return (
     <div style={{ minHeight:"100vh",background:T.bg,color:T.text,fontFamily:T.font }}>
+      {/* Password gate */}
+      {showPwGate && <PasswordGate onUnlock={() => { setShowPwGate(false); setWriteMode(isWriteUnlocked()); }} />}
+      {/* Rate-limit toast */}
+      {rlToast !== null && <RateLimitToast waitSec={rlToast} onDismiss={() => setRlToast(null)} />}
       {/* Hero */}
       <div style={{ background:"linear-gradient(160deg,#0a0f1e 0%,#130824 50%,#0a1a14 100%)",borderBottom:"1px solid rgba(255,255,255,0.07)",padding:"36px 24px 28px",position:"relative",overflow:"hidden" }}>
         <div style={{ position:"absolute",top:-60,right:-40,width:300,height:300,borderRadius:"50%",background:"radial-gradient(circle,rgba(124,58,237,0.12) 0%,transparent 70%)",pointerEvents:"none" }}/>
@@ -1062,6 +1135,8 @@ export default function App() {
           <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:12 }}>
             <div style={{ fontSize:10,fontWeight:800,letterSpacing:3,color:T.textDim,textTransform:"uppercase" }}>Europe Summer 2026</div>
             {saving && <div style={{ fontSize:11,color:T.accent,background:"rgba(124,58,237,0.12)",border:"1px solid rgba(124,58,237,0.25)",borderRadius:20,padding:"2px 10px" }}>Syncing…</div>}
+            {!writeMode && <button onClick={() => setShowPwGate(true)} style={{ fontSize:11,color:"#fbbf24",background:"rgba(251,191,36,0.1)",border:"1px solid rgba(251,191,36,0.25)",borderRadius:20,padding:"2px 10px",cursor:"pointer",fontFamily:T.font,fontWeight:600 }}>🔒 View Only — tap to unlock editing</button>}
+            {writeMode && <div style={{ fontSize:11,color:"#34d399",background:"rgba(52,211,153,0.1)",border:"1px solid rgba(52,211,153,0.25)",borderRadius:20,padding:"2px 10px" }}>🔓 Edit Mode</div>}
           </div>
           <h1 style={{ fontSize:"clamp(24px,4vw,42px)",fontWeight:900,margin:"0 0 6px",letterSpacing:"-0.5px",background:"linear-gradient(100deg,#fff 30%,rgba(200,180,255,0.8) 70%,rgba(100,180,255,0.7) 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>
             The Grand European Adventure
