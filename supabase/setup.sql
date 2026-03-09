@@ -31,21 +31,21 @@ create policy "Password-gated inserts"
   on public.trip_data for insert
   with check (
     current_setting('request.headers', true)::json ->> 'x-write-password'
-      = 'The Mutch-Too-Many Travelers'
+      = 'REPLACE_WITH_YOUR_WRITE_PASSWORD'
   );
 
 create policy "Password-gated updates"
   on public.trip_data for update
   using (
     current_setting('request.headers', true)::json ->> 'x-write-password'
-      = 'The Mutch-Too-Many Travelers'
+      = 'REPLACE_WITH_YOUR_WRITE_PASSWORD'
   );
 
 create policy "Password-gated deletes"
   on public.trip_data for delete
   using (
     current_setting('request.headers', true)::json ->> 'x-write-password'
-      = 'The Mutch-Too-Many Travelers'
+      = 'REPLACE_WITH_YOUR_WRITE_PASSWORD'
   );
 
 -- 4. Enable Realtime for this table
@@ -72,19 +72,19 @@ alter publication supabase_realtime add table public.trip_data;
 --   on public.trip_data for insert
 --   with check (
 --     current_setting('request.headers', true)::json ->> 'x-write-password'
---       = 'The Mutch-Too-Many Travelers'
+--       = 'REPLACE_WITH_YOUR_WRITE_PASSWORD'
 --   );
 
 -- create policy "Password-gated updates"
 --   on public.trip_data for update
 --   using (
 --     current_setting('request.headers', true)::json ->> 'x-write-password'
---       = 'The Mutch-Too-Many Travelers'
+--       = 'REPLACE_WITH_YOUR_WRITE_PASSWORD'
 --   );
 
 -- create policy "Password-gated deletes"
 --   on public.trip_data for delete
 --   using (
 --     current_setting('request.headers', true)::json ->> 'x-write-password'
---       = 'The Mutch-Too-Many Travelers'
+--       = 'REPLACE_WITH_YOUR_WRITE_PASSWORD'
 --   );
